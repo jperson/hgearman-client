@@ -26,16 +26,14 @@ registerWorker n f = S.get >>= \env -> do
     let ht = H.insert n f (_fns env)
     S.put env{ _fns = ht }
 
-    writePacket (_sock env) $ mkRequest CAN_DO n
-    return ()
+    (writePacket (_sock env) $ mkRequest CAN_DO n) >> return ()
 
 unregisterWorker :: B.ByteString -> Gearman ()
 unregisterWorker n = S.get >>= \env -> do
     let ht = H.delete n (_fns env)
     S.put env { _fns = ht }
 
-    writePacket (_sock env) $ mkRequest CANT_DO n
-    return ()
+    (writePacket (_sock env) $ mkRequest CANT_DO n) >> return ()
 
 gmWait :: Gearman ()
 gmWait = S.get >>= \env -> do
