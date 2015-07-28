@@ -127,31 +127,3 @@ writePacket s p = do
 
 mkRequest :: MsgType -> B.ByteString -> Packet
 mkRequest t d = Packet (PacketHdr "\0REQ" t (fromIntegral $ B.length d)) d
-
-{-can_do_timeout
-cant_do
-reset_abilities
-pre_sleep
-grab_job_uniq
-work_data
-work_warning
-work_status
-work_complete
-work_fail
-work_exception
-set_client_id
-all_yours
--}
-
---client requests
-{-submit_job
-submit_job_bg
-submit_job_high
-submit_job_high_bg
-submit_job_low
-submit_job_low_bg
-submit_job_sched
-submit_job_epoch
-get_status
-option_req
--}

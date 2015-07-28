@@ -28,6 +28,7 @@ library
                       ,mtl
                       ,monad-control
                       ,control-monad-loop
+                      ,resource-pool
 
   exposed-modules:    Network.Gearman
   other-modules:      Network.Gearman.Protocol

@@ -22,16 +22,18 @@ import           Network.Socket hiding (send, sendTo, recv, recvFrom)
 import           Network.Socket.ByteString
 import qualified Data.HashMap.Strict as H
 import           Data.Maybe
+import qualified Data.Pool as Pool
 
 type Port = Int
-data GearmanClient = GearmanClient { _sock :: Socket
-                                   , _id   :: Maybe B.ByteString
-                                   , _fns  :: H.HashMap B.ByteString (B.ByteString -> B.ByteString)
-                                   }
+data GearmanClient = GearmanClient {
+    _sock :: Socket
+  , _pool :: Pool.Pool Socket
+  , _id   :: Maybe B.ByteString
+  , _fns  :: H.HashMap B.ByteString (B.ByteString -> B.ByteString)
+}
 
 type GearmanError = B.ByteString
-newtype Gearman a = Gearman { unGearman :: S.StateT GearmanClient IO a } deriving
-    (Applicative, Functor, Monad, MonadIO, S.MonadState GearmanClient)
+type Gearman = S.StateT GearmanClient IO
 
 withGearman :: GearmanClient -> Gearman a -> IO a
-withGearman env (Gearman action) = S.runStateT action env >>= (\(v,s) -> return v)
+withGearman env action = S.runStateT action env >>= (\(v,s) -> return v)
