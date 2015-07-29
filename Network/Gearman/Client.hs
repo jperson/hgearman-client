@@ -1,26 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Network.Gearman.Client (connectGearman, submitJob, submitJobBg) where
 
-import           Control.Applicative
-import           Control.Monad
-import           Control.Monad.Trans
-import           Control.Monad.Trans.Loop
 import qualified Control.Monad.State as S
-import           Control.Monad.IO.Class
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.HashTable.IO as H
 import           Network.Socket hiding (send, sendTo, recv, recvFrom)
-import           Network.Socket.ByteString
 import qualified Data.HashMap.Strict as H
-import           Data.Maybe
 import qualified Data.Pool as Pool
 
 import Network.Gearman.Protocol
 import Network.Gearman.Internal
-
-type Function = B.ByteString
 
 connectGearman :: B.ByteString -> HostName -> Port -> IO (Either GearmanError GearmanClient)
 connectGearman i h p = do
@@ -31,8 +19,8 @@ connectGearman i h p = do
 
   pool <- mkPool addrInfo
 
-  return $ (writePacket sk $ mkRequest SET_CLIENT_ID i) >> response sk
-  return $ Right $ GearmanClient sk pool (Just i) $ H.empty
+  _ <- return $ writePacket sk (mkRequest SET_CLIENT_ID i) >> response sk
+  return $ Right $ GearmanClient sk pool (Just i) H.empty
 
   where mkPool :: [AddrInfo] -> IO (Pool.Pool Socket)
         mkPool a = Pool.createPool (mkConn a) sClose 1 10 10
@@ -48,12 +36,11 @@ submitJob f d = do
     packet <- submit $ B.concat [f, "\0\0", d]
     case packet of
         Left p  -> return $ Left p
-        Right p -> let [h,r] = B.split '\0' $ _msg p in return $ Right r
+        Right p -> let _:r:_ = B.split '\0' $ _msg p in return $ Right r
 
 submit :: B.ByteString -> Gearman (Either GearmanError Packet)
-submit req = S.get >>= \env -> do
-    Pool.withResource (_pool env) $ \s -> do
-        (writePacket s $ mkRequest SUBMIT_JOB req) >> response s
+submit req = S.get >>= \env -> Pool.withResource (_pool env) $ \s ->
+        writePacket s (mkRequest SUBMIT_JOB req) >> response s
 
 response :: Socket -> Gearman (Either GearmanError Packet)
 response s = do
@@ -68,9 +55,8 @@ response s = do
         _               -> response s
 
 submitJobBg :: Function -> B.ByteString -> Gearman ()
-submitJobBg f d = S.get >>= \env -> do
-    Pool.withResource (_pool env) $ \s -> do
-        (writePacket s $ (mkRequest SUBMIT_JOB_BG req)) >> readPacket s >> return ()
+submitJobBg f d = S.get >>= \env -> Pool.withResource (_pool env) $ \s ->
+        writePacket s (mkRequest SUBMIT_JOB_BG req) >> readPacket s >> return ()
 
     where req = B.concat [f, "\0\0", d]
 

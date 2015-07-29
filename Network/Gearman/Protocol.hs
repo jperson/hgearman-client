@@ -8,23 +8,14 @@ module Network.Gearman.Protocol ( Packet(..)
                                 , mkRequest
                                 ) where
 
-import           Control.Applicative
-import           Control.Monad
 import           Control.Monad.Trans
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Control.Monad.State as S
-import           Control.Monad.IO.Class
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.HashTable.IO as H
 import           Data.Binary
 import           Data.Binary.Get
 import           Data.Binary.Put
 import           Network.Socket hiding (send, sendTo, recv, recvFrom)
 import           Network.Socket.ByteString
-import           Network.Socket.Options
-import qualified Data.HashMap.Strict as H
-import           Data.Maybe
 
 import Network.Gearman.Internal
 
@@ -108,7 +99,7 @@ recv' s n = do
     msg <- recv s n
     case n - B.length msg of
         0 -> return msg
-        otherwise -> recv' s (n - B.length msg) >>= \x -> return $ msg `B.append` x
+        _ -> recv' s (n - B.length msg) >>= \x -> return $ msg `B.append` x
 
 readPacket :: Socket -> Gearman Packet
 readPacket = readSocket
@@ -122,7 +113,7 @@ readSocket s = do
 
 writePacket :: Socket -> Packet -> Gearman ()
 writePacket s p = do
-    liftIO $ send s $ (BL.toStrict . encode) p
+    _ <- liftIO $ send s $ (BL.toStrict . encode) p
     return ()
 
 mkRequest :: MsgType -> B.ByteString -> Packet

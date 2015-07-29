@@ -1,30 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Network.Gearman.Internal ( Port
+                                , Function
                                 , GearmanClient(..)
                                 , GearmanError
-                                , Gearman(..)
+                                , Gearman()
                                 , withGearman
                                 ) where
 
-import           Control.Applicative
-import           Control.Concurrent
-import           Control.Monad
-import           Control.Monad.Base
-import           Control.Monad.Trans
-import           Control.Monad.Trans.Control
 import qualified Control.Monad.State as S
-import           Control.Monad.IO.Class
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.HashTable.IO as H
 import           Network.Socket hiding (send, sendTo, recv, recvFrom)
-import           Network.Socket.ByteString
 import qualified Data.HashMap.Strict as H
-import           Data.Maybe
 import qualified Data.Pool as Pool
 
 type Port = Int
+type Function = B.ByteString
+
 data GearmanClient = GearmanClient {
     _sock :: Socket
   , _pool :: Pool.Pool Socket
@@ -36,4 +27,4 @@ type GearmanError = B.ByteString
 type Gearman = S.StateT GearmanClient IO
 
 withGearman :: GearmanClient -> Gearman a -> IO a
-withGearman env action = S.runStateT action env >>= (\(v,s) -> return v)
+withGearman env action = S.runStateT action env >>= (\(v,_) -> return v)
