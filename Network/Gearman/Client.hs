@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Network.Gearman.Client (connectGearman, submitJob, submitJobBg) where
+module Network.Gearman.Client (connectGearman, submitJob, submitJobHigh, submitJobLow, submitJobBg) where
 
 import qualified Control.Monad.State as S
 import qualified Data.ByteString.Char8 as B
@@ -31,12 +31,34 @@ connectGearman i h p = do
             connect sk (addrAddress (head a))
             return sk
 
+responseOrError :: (Either GearmanError Packet) -> Gearman (Either GearmanError B.ByteString)
+responseOrError pk = case pk of
+    Left p  -> return $ Left p
+    Right p -> let _:r:_ = B.split '\0' $ _msg p in return $ Right r
+
 submitJob :: Function -> B.ByteString -> Gearman (Either GearmanError B.ByteString)
-submitJob f d = do
-    packet <- submit $ B.concat [f, "\0\0", d]
-    case packet of
-        Left p  -> return $ Left p
-        Right p -> let _:r:_ = B.split '\0' $ _msg p in return $ Right r
+submitJob f d =  (submit $ B.concat [f, "\0\0", d]) >>= responseOrError
+
+submitJobHigh :: Function -> B.ByteString -> Gearman (Either GearmanError B.ByteString)
+submitJobHigh f d = do
+    env <- S.get 
+    Pool.withResource (_pool env) $ \s -> do
+        writePacket s (mkRequest SUBMIT_JOB_HIGH req) >> response s >>= responseOrError
+    where req = B.concat [f, "\0\0", d]
+
+submitJobLow :: Function -> B.ByteString -> Gearman (Either GearmanError B.ByteString)
+submitJobLow f d = do
+    env <- S.get
+    Pool.withResource (_pool env) $ \s -> do
+        writePacket s (mkRequest SUBMIT_JOB_LOW req) >> response s >>= responseOrError
+    where req = B.concat[f, "\0\0", d]
+
+submitJobBg :: Function -> B.ByteString -> Gearman ()
+submitJobBg f d = do
+    env <- S.get
+    Pool.withResource (_pool env) $ \s ->
+        writePacket s (mkRequest SUBMIT_JOB_BG req) >> readPacket s >> return ()
+    where req = B.concat [f, "\0\0", d]
 
 submit :: B.ByteString -> Gearman (Either GearmanError Packet)
 submit req = S.get >>= \env -> Pool.withResource (_pool env) $ \s ->
@@ -54,9 +76,4 @@ response s = do
         WORK_WARNING    -> return $ Left "WORK_WARNING NOT IMPLEMENTED"
         _               -> response s
 
-submitJobBg :: Function -> B.ByteString -> Gearman ()
-submitJobBg f d = S.get >>= \env -> Pool.withResource (_pool env) $ \s ->
-        writePacket s (mkRequest SUBMIT_JOB_BG req) >> readPacket s >> return ()
-
-    where req = B.concat [f, "\0\0", d]
 
